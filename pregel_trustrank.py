@@ -3,8 +3,9 @@ Implementation of Trustrank using pregel framework
 """
 import csv
 from pregel import Vertex, Pregel
+from tabulate import tabulate
 
-num_workers = 4                                 # No of threads to assign vertices
+num_workers = 10                                 # No of threads to assign vertices
 
 """ Vertex class for TrustRank algorithm
     Can add instance varibles and methods according to algorithm
@@ -27,8 +28,13 @@ class TrustRankVertex(Vertex):
                 self.value = self.dampingFactor*messages_sum+(1-self.dampingFactor)/len(bad_nodes)
 
             # Sending outgoing messages now
-            outgoing_message = self.value / len(self.out_vertices)
-            self.outgoing_messages = [(vertex_from_id[id],outgoing_message) for (id,weight) in self.out_vertices]
+            total_weight = 0
+            for (id,weight) in self.out_vertices:
+                total_weight+=weight
+            self.outgoing_messages = []
+            for (id,weight) in self.out_vertices:
+                message = self.value*(weight/total_weight)
+                self.outgoing_messages.append((vertex_from_id[id],message))
         else:
             self.active = False
 
@@ -115,7 +121,18 @@ for vertex in vertices:
 # Getting Final trust scores
 nodes_trust_scores = pregelTrustRank(vertices)
 
-nodes_trust_scores = sorted(nodes_trust_scores, key=lambda x: x[1])
+#Sortin the list according to scores
+nodes_trust_scores = sorted(nodes_trust_scores, key=lambda x: x[1],reverse=True)
 
-for i in range(num_vertices):
-    print(f'Scores: {nodes_trust_scores[i]}')
+# Plotting the table of dealers with their trust scores
+head = ["Dealer ID", "Trustscore"]
+table = tabulate(nodes_trust_scores,headers=head,tablefmt='grid')
+
+# Printing the scores in table format to new file
+# Open the file for writing
+with open('DealerTrustScores.txt', 'w') as f:
+    # Redirect the print statement to write to the file
+  print(table,file=f)
+
+# Close the file
+f.close()
